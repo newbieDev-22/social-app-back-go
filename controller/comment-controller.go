@@ -1,117 +1,101 @@
 package controller
 
 import (
-	"errors"
 	"net/http"
-	"simple-social-app/db"
 	"simple-social-app/dto"
-	"simple-social-app/model"
-	"time"
+	"simple-social-app/service"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
-type Comment struct {
+type (
+	CommentController interface {
+		Create(ctx *gin.Context)
+		FindAll(ctx *gin.Context)
+		Update(ctx *gin.Context)
+		Delete(ctx *gin.Context)
+	}
+
+	commentController struct {
+		commentService service.CommentService
+		postService    service.PostService
+	}
+)
+
+func NewCommentController(commentService service.CommentService, postService service.PostService) CommentController {
+	return &commentController{
+		commentService: commentService,
+		postService:    postService,
+	}
 }
 
-func (c Comment) Create(ctx *gin.Context) {
-
-	var form dto.CommentRequest
+func (c *commentController) Create(ctx *gin.Context) {
+	var commentReq dto.CommentRequest
 	postId := ctx.Param("postId")
 	user := ctx.MustGet("user").(dto.UserResponse)
 
-	if err := ctx.ShouldBindJSON(&form); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := ctx.ShouldBindJSON(&commentReq); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": dto.MESSAGE_FAILED_GET_DATA_FROM_BODY})
+		ctx.Abort()
 		return
 	}
 
-	existPost := model.Post{}
-
-	existPostQuery := db.Conn.First(&existPost, postId)
-	if err := existPostQuery.Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	existPost, err := c.postService.GetPostById(ctx.Request.Context(), postId)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": dto.MESSAGE_FAILED_GET_POST})
+		ctx.Abort()
 		return
 	}
 
-	newComment := model.Comment{
+	newComment := dto.CommentCreate{
 		UserId:  user.ID,
-		Message: form.Message,
+		Message: commentReq.Message,
 		PostId:  existPost.ID,
 	}
 
-	newCommentQuery := db.Conn.Preload("User").Create(&newComment)
-
-	if err := newCommentQuery.Error; err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+	result, err := c.commentService.CreateComment(ctx.Request.Context(), newComment)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": dto.MESSAGE_FAILED_CREATE_COMMENT})
+		ctx.Abort()
 		return
 	}
-	ctx.JSON(http.StatusCreated, gin.H{"comment": dto.CommentResponse{
-		ID:      newComment.ID,
-		Message: newComment.Message,
-		UserId:  newComment.UserId,
-		PostId:  newComment.PostId,
-		User: dto.UserResponse{
-			ID:        user.ID,
-			Email:     user.Email,
-			FirstName: user.FirstName,
-			LastName:  user.LastName,
-		},
-	}})
+
+	ctx.JSON(http.StatusCreated, gin.H{"comment": result})
 }
 
-func (c Comment) FindAll(ctx *gin.Context) {
+func (c *commentController) FindAll(ctx *gin.Context) {
 	postId := ctx.Param("postId")
 
-	existPost := model.Post{}
-
-	existPostQuery := db.Conn.First(&existPost, postId)
-	if err := existPostQuery.Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	_, err := c.postService.GetPostById(ctx.Request.Context(), postId)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": dto.MESSAGE_FAILED_GET_POST})
+		ctx.Abort()
 		return
 	}
 
-	var comments []model.Comment
-	query := db.Conn.Preload("User").Find(&comments)
-	if err := query.Error; err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+	result, err := c.commentService.GetAllComment(ctx.Request.Context(), postId)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": dto.MESSAGE_FAILED_GET_COMMENT})
+		ctx.Abort()
 		return
-	}
-
-	var result []dto.CommentResponse
-
-	for _, comment := range comments {
-		result = append(result, dto.CommentResponse{
-			ID:      comment.ID,
-			Message: comment.Message,
-			UserId:  comment.UserId,
-			PostId:  comment.PostId,
-			User: dto.UserResponse{
-				ID:        comment.User.ID,
-				Email:     comment.User.Email,
-				FirstName: comment.User.FirstName,
-				LastName:  comment.User.LastName,
-			},
-		})
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"comments": result})
 }
 
-func (c Comment) Update(ctx *gin.Context) {
+func (c *commentController) Update(ctx *gin.Context) {
 	commentId := ctx.Param("commentId")
 	user := ctx.MustGet("user").(dto.UserResponse)
 
-	var form dto.CommentRequest
-	if err := ctx.ShouldBind(&form); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	var commentReq dto.CommentRequest
+	if err := ctx.ShouldBind(&commentReq); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": dto.MESSAGE_FAILED_GET_DATA_FROM_BODY})
 		return
 	}
 
-	var existComment model.Comment
-
-	if err := db.Conn.First(&existComment, commentId).Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+	existComment, err := c.commentService.GetCommentById(ctx.Request.Context(), commentId)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": dto.MESSAGE_FAILED_GET_COMMENT})
 		return
 	}
 
@@ -120,39 +104,35 @@ func (c Comment) Update(ctx *gin.Context) {
 		return
 	}
 
-	existComment.Message = form.Message
-	db.Conn.Preload("User").Save(&existComment)
+	existComment.Message = commentReq.Message
 
-	ctx.JSON(http.StatusOK, gin.H{"comment": dto.CommentResponse{
-		ID:      existComment.ID,
-		Message: existComment.Message,
-		UserId:  existComment.UserId,
-		PostId:  existComment.PostId,
-		User: dto.UserResponse{
-			ID:        user.ID,
-			Email:     user.Email,
-			FirstName: user.FirstName,
-			LastName:  user.LastName,
-		},
-	}})
+	result, err := c.commentService.UpdateComment(ctx.Request.Context(), existComment)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": dto.MESSAGE_FAILED_UPDATE_COMMENT})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"post": result})
 }
 
-func (c Comment) Delete(ctx *gin.Context) {
+func (c *commentController) Delete(ctx *gin.Context) {
 	commentId := ctx.Param("commentId")
 	user := ctx.MustGet("user").(dto.UserResponse)
 
-	var existComment model.Comment
+	existComment, err := c.commentService.GetCommentById(ctx.Request.Context(), commentId)
 
-	if err := db.Conn.First(&existComment, commentId).Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-		return
+	if err == nil {
+		if existComment.UserId != user.ID {
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": dto.MESSAGE_FAILED_UNAUTHORIZED})
+			ctx.Abort()
+			return
+		}
+		err = c.commentService.DeleteCommentById(ctx.Request.Context(), commentId)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": dto.MESSAGE_FAILED_DELETE_COMMENT})
+			ctx.Abort()
+			return
+		}
 	}
-
-	if existComment.UserId != user.ID {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthenticated"})
-		return
-	}
-
-	db.Conn.Unscoped().Delete(&model.Comment{}, commentId)
-	ctx.JSON(http.StatusOK, gin.H{"deletedAt": time.Now()})
+	ctx.JSON(http.StatusNoContent, gin.H{})
 }

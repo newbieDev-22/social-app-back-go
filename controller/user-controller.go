@@ -1,93 +1,77 @@
 package controller
 
 import (
-	"errors"
 	"net/http"
-	"simple-social-app/db"
 	"simple-social-app/dto"
-	"simple-social-app/helpers"
-	"simple-social-app/model"
 	"simple-social-app/service"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
-type User struct {
+type (
+	UserController interface {
+		Register(ctx *gin.Context)
+		Login(ctx *gin.Context)
+		GetMe(ctx *gin.Context)
+	}
+
+	userController struct {
+		userService service.UserService
+	}
+)
+
+func NewUserController(userService service.UserService) UserController {
+	return &userController{
+		userService: userService,
+	}
 }
 
-func (u User) Register(ctx *gin.Context) {
-	var form dto.UserCreateRequest
+func (c *userController) Register(ctx *gin.Context) {
+	var userReq dto.UserCreateRequest
 
-	if err := ctx.ShouldBindJSON(&form); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := ctx.ShouldBindJSON(&userReq); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": dto.MESSAGE_FAILED_GET_DATA_FROM_BODY})
+		ctx.Abort()
 		return
 	}
 
-	if form.Password != form.ConfirmPassword {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Password and confirm password is not match"})
+	if userReq.Password != userReq.ConfirmPassword {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": dto.MESSAGE_FAILED_PASSWORD_NOT_MATCH})
+		ctx.Abort()
 		return
 	}
 
-	var existUser model.User
-	query := db.Conn.Where("email = ?", form.Email).First(&existUser)
-	if err := query.Error; !errors.Is(err, gorm.ErrRecordNotFound) {
-		ctx.JSON(http.StatusConflict, gin.H{"error": "Email is already in use"})
+	result, err := c.userService.Register(ctx.Request.Context(), userReq)
+
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": dto.MESSAGE_FAILED_REGISTER_USER})
+		ctx.Abort()
 		return
 	}
 
-	hashedPassword, _ := helpers.HashPassword(form.Password)
-
-	newUser := model.User{
-		Email:     form.Email,
-		FirstName: form.FirstName,
-		LastName:  form.LastName,
-		Password:  hashedPassword,
-	}
-
-	if err := db.Conn.Create(&newUser).Error; err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx.JSON(http.StatusCreated, dto.UserResponse{
-		ID:        newUser.ID,
-		Email:     newUser.FirstName,
-		FirstName: newUser.LastName,
-		LastName:  newUser.LastName,
-	})
+	ctx.JSON(http.StatusCreated, result)
 }
 
-func (u User) Login(ctx *gin.Context) {
-	var form dto.UserLoginRequest
-	var existUser model.User
+func (c *userController) Login(ctx *gin.Context) {
+	var userReq dto.UserLoginRequest
 
-	if err := ctx.ShouldBindJSON(&form); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := ctx.ShouldBindJSON(&userReq); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": dto.MESSAGE_FAILED_GET_DATA_FROM_BODY})
+		ctx.Abort()
 		return
 	}
 
-	query := db.Conn.Where("email = ?", form.Email).First(&existUser)
-	if err := query.Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Email or Password"})
+	result, err := c.userService.Login(ctx.Request.Context(), userReq)
+
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": dto.MESSAGE_FAILED_WRONG_EMAIL_OR_PASSWORD})
+		ctx.Abort()
 		return
 	}
 
-	isMatch, _ := helpers.CheckPassword(existUser.Password, []byte(form.Password))
-
-	if !isMatch {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Email or Password"})
-		return
-	}
-
-	jwtService := service.NewJWTService()
-	accessToken := jwtService.GenerateToken(existUser.ID)
-
-	ctx.JSON(http.StatusOK, dto.UserLoginResponse{
-		AccessToken: accessToken,
-	})
+	ctx.JSON(http.StatusOK, result)
 }
-func (u User) GetMe(ctx *gin.Context) {
+func (c *userController) GetMe(ctx *gin.Context) {
 	user := ctx.MustGet("user").(dto.UserResponse)
 
 	ctx.JSON(http.StatusOK, gin.H{"user": user})

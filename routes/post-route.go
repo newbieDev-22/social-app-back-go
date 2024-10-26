@@ -3,16 +3,20 @@ package routes
 import (
 	"simple-social-app/controller"
 	"simple-social-app/middleware"
+	"simple-social-app/repository"
 	"simple-social-app/service"
 
 	"github.com/gin-gonic/gin"
 )
 
-func PostRoute(r *gin.Engine) {
-	postController := controller.Post{}
-	postGroup := r.Group("/posts")
-	postGroup.POST("/", middleware.Authenticate(service.NewJWTService()), postController.Create)
-	postGroup.GET("/", middleware.Authenticate(service.NewJWTService()), postController.FindAll)
-	postGroup.PATCH("/:postId", middleware.Authenticate(service.NewJWTService()), postController.Update)
-	postGroup.DELETE("/:postId", middleware.Authenticate(service.NewJWTService()), postController.Delete)
+func Post(route *gin.Engine, postController controller.PostController, jwtService service.JWTService, userRepository repository.UserRepository) {
+	routes := route.Group("/posts")
+	routes.Use(middleware.Authenticate(jwtService, userRepository))
+	{
+		routes.POST("/", postController.Create)
+		routes.GET("/", postController.FindAll)
+		routes.PATCH("/:postId", postController.Update)
+		routes.DELETE("/:postId", postController.Delete)
+	}
+
 }

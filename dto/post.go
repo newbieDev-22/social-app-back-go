@@ -5,7 +5,7 @@ type PostRequest struct {
 }
 
 type PostCreate struct {
-	UserId  string `form:"userId" binding:"required"`
+	UserId  uint   `form:"userId" binding:"required"`
 	Message string `form:"message" binding:"required"`
 }
 
