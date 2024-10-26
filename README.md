@@ -30,18 +30,20 @@ A simple social app built with Golang, Gin, and Gorm. This app allows users to c
 
 ### User Endpoints
 
-- `POST /register`: Register a new user
-- `POST /login`: Login an existing user
-- `GET /get-me`: Get the current user's profile information
+- `POST /auth/register`: Register a new user
+- `POST /auth/login`: Login an existing user
+- `GET /auth/get-me`: Get the current user's profile information
 
 ### Post Endpoints
 
 - `POST /posts`: Create a new post
-- `GET /posts/:postId`: Get a post by ID
+- `GET /posts`: Get all post
 - `PATCH /posts/:postId`: Update a post
 - `DELETE /posts/:postId`: Delete a post
-- `GET /posts/:postId/comments`: Get all comments for a post
-- `POST /posts/:postId/comments`: Create a new comment for a post
-- `GET /posts/:postId/comments/:commentId`: Get a comment by ID
-- `PATCH /posts/:postId/comments/:commentId`: Update a comment
-- `DELETE /posts/:postId/comments/:commentId`: Delete a comment
+
+### Comment Endpoints
+
+- `GET /comments/post/:postId/`: Get all comment by Post ID
+- `POST /comments/post/:postId`: Create a new comment for a post
+- `PATCH /comments/:commentId`: Update a comment
+- `DELETE /comments/:commentId`: Delete a comment
