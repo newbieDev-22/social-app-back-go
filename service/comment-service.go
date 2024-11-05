@@ -10,30 +10,37 @@ import (
 
 type (
 	CommentService interface {
-		CreateComment(ctx context.Context, req dto.CommentCreate) (dto.CommentResponse, error)
-		UpdateComment(ctx context.Context, req entity.Comment) (dto.CommentResponse, error)
+		CreateComment(ctx context.Context, req entity.Comment, postId string) (dto.CommentResponse, error)
+		UpdateComment(ctx context.Context, req entity.Comment, commentId string) (dto.CommentResponse, error)
 		GetCommentById(ctx context.Context, commentId string) (entity.Comment, error)
 		GetAllComment(ctx context.Context, postId string) ([]dto.CommentResponse, error)
-		DeleteCommentById(ctx context.Context, commentId string) error
+		DeleteCommentById(ctx context.Context, userId uint, commentId string) error
 	}
 
 	commentService struct {
 		commentRepo repository.CommentRepository
+		postRepo    repository.PostRepository
 	}
 )
 
-func NewCommentService(commentRepo repository.CommentRepository) CommentService {
+func NewCommentService(commentRepo repository.CommentRepository, postRepo repository.PostRepository) CommentService {
 	return &commentService{
 		commentRepo: commentRepo,
+		postRepo:    postRepo,
 	}
 }
 
-func (s *commentService) CreateComment(ctx context.Context, req dto.CommentCreate) (dto.CommentResponse, error) {
+func (s *commentService) CreateComment(ctx context.Context, req entity.Comment, postId string) (dto.CommentResponse, error) {
+
+	existPost, err := s.postRepo.GetPostById(ctx, nil, postId)
+	if err != nil {
+		return dto.CommentResponse{}, err
+	}
 
 	comment := entity.Comment{
 		UserId:  req.UserId,
 		Message: req.Message,
-		PostId:  req.PostId,
+		PostId:  existPost.ID,
 	}
 
 	createComment, err := s.commentRepo.CreateComment(ctx, nil, comment)
@@ -60,8 +67,20 @@ func (s *commentService) CreateComment(ctx context.Context, req dto.CommentCreat
 	}, nil
 }
 
-func (s *commentService) UpdateComment(ctx context.Context, req entity.Comment) (dto.CommentResponse, error) {
-	updateComment, err := s.commentRepo.UpdateComment(ctx, nil, req)
+func (s *commentService) UpdateComment(ctx context.Context, req entity.Comment, commentId string) (dto.CommentResponse, error) {
+
+	existComment, err := s.commentRepo.GetCommentById(ctx, nil, commentId)
+	if err != nil {
+		return dto.CommentResponse{}, err
+	}
+
+	if existComment.UserId != req.UserId {
+		return dto.CommentResponse{}, dto.ErrUnauthorized
+	}
+
+	existComment.Message = req.Message
+
+	updateComment, err := s.commentRepo.UpdateComment(ctx, nil, existComment)
 	if err != nil {
 		return dto.CommentResponse{}, err
 	}
@@ -92,6 +111,11 @@ func (s *commentService) GetCommentById(ctx context.Context, commentId string) (
 
 func (s *commentService) GetAllComment(ctx context.Context, postId string) ([]dto.CommentResponse, error) {
 
+	_, err := s.postRepo.GetPostById(ctx, nil, postId)
+	if err != nil {
+		return []dto.CommentResponse{}, err
+	}
+
 	comments, err := s.commentRepo.GetAllComment(ctx, nil, postId)
 	if err != nil {
 		return []dto.CommentResponse{}, err
@@ -117,9 +141,16 @@ func (s *commentService) GetAllComment(ctx context.Context, postId string) ([]dt
 	return result, nil
 }
 
-func (s *commentService) DeleteCommentById(ctx context.Context, commentId string) error {
+func (s *commentService) DeleteCommentById(ctx context.Context, userId uint, commentId string) error {
+	existComment, err := s.commentRepo.GetCommentById(ctx, nil, commentId)
+	if err != nil {
+		return err
+	}
 
-	err := s.commentRepo.DeleteCommentById(ctx, nil, commentId)
+	if existComment.UserId != userId {
+		return dto.ErrUnauthorized
+	}
+	err = s.commentRepo.DeleteCommentById(ctx, nil, commentId)
 
 	return err
 }

@@ -37,4 +37,5 @@ var (
 	ErrTokenInvalid       = errors.New("token invalid")
 	ErrTokenExpired       = errors.New("token expired")
 	ErrUnauthorized       = errors.New("Unauthorized")
+	ErrCannotFindPost     = errors.New("cannot find post")
 )

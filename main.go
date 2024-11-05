@@ -32,8 +32,8 @@ func main() {
 		postService       service.PostService          = service.NewPostService(postRepository)
 		postController    controller.PostController    = controller.NewPostController(postService)
 		commentRepository repository.CommentRepository = repository.NewCommentRepository(db)
-		commentService    service.CommentService       = service.NewCommentService(commentRepository)
-		commentController controller.CommentController = controller.NewCommentController(commentService, postService)
+		commentService    service.CommentService       = service.NewCommentService(commentRepository, postRepository)
+		commentController controller.CommentController = controller.NewCommentController(commentService)
 	)
 
 	server := gin.Default()

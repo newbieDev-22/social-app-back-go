@@ -31,12 +31,10 @@ func (r *userRepository) CreateUser(ctx context.Context, tx *gorm.DB, user entit
 	if tx == nil {
 		tx = r.db
 	}
-
 	if err := tx.WithContext(ctx).Create(&user).Error; err != nil {
 		return entity.User{}, err
 	}
 	return user, nil
-
 }
 
 func (r *userRepository) GetUserById(ctx context.Context, tx *gorm.DB, userId uint) (entity.User, error) {
@@ -75,10 +73,10 @@ func (r *userRepository) CheckEmailInUse(ctx context.Context, tx *gorm.DB, email
 	}
 
 	var user entity.User
+	getUserQuery := tx.WithContext(ctx).Where("email = ?", email).First(&user)
 
-	if err := tx.WithContext(ctx).Where("email = ?", email).First(&user).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+	if err := getUserQuery.Error; errors.Is(err, gorm.ErrRecordNotFound) {
 		return entity.User{}, false, err
 	}
 	return user, true, nil
-
 }

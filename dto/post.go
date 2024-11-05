@@ -4,11 +4,6 @@ type PostRequest struct {
 	Message string `form:"message" binding:"required"`
 }
 
-type PostCreate struct {
-	UserId  uint   `form:"userId" binding:"required"`
-	Message string `form:"message" binding:"required"`
-}
-
 type PostResponse struct {
 	ID      uint              `json:"id"`
 	Message string            `json:"message"`

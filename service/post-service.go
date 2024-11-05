@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"simple-social-app/dto"
 	"simple-social-app/entity"
 	"simple-social-app/repository"
@@ -10,11 +11,11 @@ import (
 
 type (
 	PostService interface {
-		CreatePost(ctx context.Context, req dto.PostCreate) (dto.PostResponse, error)
-		UpdatePost(ctx context.Context, req entity.Post) (dto.PostResponse, error)
-		GetPostById(ctx context.Context, postId string) (entity.Post, error)
+		CreatePost(ctx context.Context, req entity.Post) (dto.PostResponse, error)
+		UpdatePost(ctx context.Context, req entity.Post, postId string) (dto.PostResponse, error)
 		GetPostAllPost(ctx context.Context) ([]dto.PostResponse, error)
-		DeletePostById(ctx context.Context, postId string) error
+		GetPostById(ctx context.Context, postId string) (entity.Post, error)
+		DeletePostById(ctx context.Context, userId uint, postId string) error
 	}
 
 	postService struct {
@@ -28,7 +29,7 @@ func NewPostService(postRepo repository.PostRepository) PostService {
 	}
 }
 
-func (s *postService) CreatePost(ctx context.Context, req dto.PostCreate) (dto.PostResponse, error) {
+func (s *postService) CreatePost(ctx context.Context, req entity.Post) (dto.PostResponse, error) {
 
 	post := entity.Post{
 		UserId:  req.UserId,
@@ -58,9 +59,31 @@ func (s *postService) CreatePost(ctx context.Context, req dto.PostCreate) (dto.P
 		Comment: []dto.CommentResponse{},
 	}, nil
 }
+func (s *postService) GetPostById(ctx context.Context, postId string) (entity.Post, error) {
 
-func (s *postService) UpdatePost(ctx context.Context, req entity.Post) (dto.PostResponse, error) {
-	updatePost, err := s.postRepo.UpdatePost(ctx, nil, req)
+	post, err := s.postRepo.GetPostById(ctx, nil, postId)
+	if err != nil {
+		return entity.Post{}, err
+	}
+
+	return post, nil
+}
+func (s *postService) UpdatePost(ctx context.Context, req entity.Post, postId string) (dto.PostResponse, error) {
+
+	existPost, err := s.postRepo.GetPostById(ctx, nil, postId)
+	if err != nil {
+		return dto.PostResponse{}, err
+	}
+
+	if existPost.UserId != req.UserId {
+		return dto.PostResponse{}, dto.ErrUnauthorized
+	}
+
+	fmt.Println("existPost1", existPost)
+	existPost.Message = req.Message
+	fmt.Println("existPost2", existPost)
+
+	updatePost, err := s.postRepo.UpdatePost(ctx, nil, existPost)
 	if err != nil {
 		return dto.PostResponse{}, err
 	}
@@ -93,16 +116,6 @@ func (s *postService) UpdatePost(ctx context.Context, req entity.Post) (dto.Post
 		},
 		Comment: comments,
 	}, nil
-}
-
-func (s *postService) GetPostById(ctx context.Context, postId string) (entity.Post, error) {
-
-	post, err := s.postRepo.GetPostById(ctx, nil, postId)
-	if err != nil {
-		return entity.Post{}, err
-	}
-
-	return post, nil
 }
 
 func (s *postService) GetPostAllPost(ctx context.Context) ([]dto.PostResponse, error) {
@@ -149,9 +162,17 @@ func (s *postService) GetPostAllPost(ctx context.Context) ([]dto.PostResponse, e
 	return result, nil
 }
 
-func (s *postService) DeletePostById(ctx context.Context, postId string) error {
+func (s *postService) DeletePostById(ctx context.Context, userId uint, postId string) error {
+	existPost, err := s.postRepo.GetPostById(ctx, nil, postId)
+	if err != nil {
+		return err
+	}
 
-	err := s.postRepo.DeletePostById(ctx, nil, postId)
+	if existPost.UserId != userId {
+		return dto.ErrUnauthorized
+	}
+
+	err = s.postRepo.DeletePostById(ctx, nil, postId)
 
 	return err
 }

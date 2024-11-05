@@ -3,6 +3,7 @@ package controller
 import (
 	"net/http"
 	"simple-social-app/dto"
+	"simple-social-app/entity"
 	"simple-social-app/service"
 
 	"github.com/gin-gonic/gin"
@@ -37,7 +38,7 @@ func (c *postController) Create(ctx *gin.Context) {
 		return
 	}
 
-	newPost := dto.PostCreate{
+	newPost := entity.Post{
 		UserId:  user.ID,
 		Message: postReq.Message,
 	}
@@ -45,7 +46,7 @@ func (c *postController) Create(ctx *gin.Context) {
 	result, err := c.postService.CreatePost(ctx.Request.Context(), newPost)
 
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": dto.MESSAGE_FAILED_CREATE_POST})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		ctx.Abort()
 		return
 	}
@@ -76,25 +77,14 @@ func (c *postController) Update(ctx *gin.Context) {
 		return
 	}
 
-	existPost, err := c.postService.GetPostById(ctx.Request.Context(), postId)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": dto.MESSAGE_FAILED_UPDATE_POST})
-		ctx.Abort()
-		return
+	updatePost := entity.Post{
+		UserId:  user.ID,
+		Message: postReq.Message,
 	}
 
-	if existPost.UserId != user.ID {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "dto.MESSAGE_FAILED_UNAUTHORIZED"})
-		ctx.Abort()
-		return
-	}
-
-	existPost.Message = postReq.Message
-
-	result, err := c.postService.UpdatePost(ctx.Request.Context(), existPost)
-
+	result, err := c.postService.UpdatePost(ctx.Request.Context(), updatePost, postId)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": dto.MESSAGE_FAILED_UPDATE_POST})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		ctx.Abort()
 		return
 	}
@@ -106,20 +96,11 @@ func (c *postController) Delete(ctx *gin.Context) {
 	postId := ctx.Param("postId")
 	user := ctx.MustGet("user").(dto.UserResponse)
 
-	existPost, err := c.postService.GetPostById(ctx.Request.Context(), postId)
-
-	if err == nil {
-		if existPost.UserId != user.ID {
-			ctx.JSON(http.StatusUnauthorized, gin.H{"error": dto.MESSAGE_FAILED_UNAUTHORIZED})
-			ctx.Abort()
-			return
-		}
-		err = c.postService.DeletePostById(ctx.Request.Context(), postId)
-		if err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": dto.MESSAGE_FAILED_DELETE_POST})
-			ctx.Abort()
-			return
-		}
+	err := c.postService.DeletePostById(ctx.Request.Context(), user.ID, postId)
+	if err != nil && err == dto.ErrUnauthorized {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.Abort()
+		return
 	}
 
 	ctx.JSON(http.StatusNoContent, gin.H{})
