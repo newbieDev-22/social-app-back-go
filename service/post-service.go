@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"simple-social-app/dto"
 	"simple-social-app/entity"
 	"simple-social-app/repository"
@@ -79,9 +78,7 @@ func (s *postService) UpdatePost(ctx context.Context, req entity.Post, postId st
 		return dto.PostResponse{}, dto.ErrUnauthorized
 	}
 
-	fmt.Println("existPost1", existPost)
 	existPost.Message = req.Message
-	fmt.Println("existPost2", existPost)
 
 	updatePost, err := s.postRepo.UpdatePost(ctx, nil, existPost)
 	if err != nil {
