@@ -10,8 +10,8 @@ import (
 
 type (
 	CommentService interface {
-		CreateComment(ctx context.Context, req entity.Comment, postId string) (dto.CommentResponse, error)
-		UpdateComment(ctx context.Context, req entity.Comment, commentId string) (dto.CommentResponse, error)
+		CreateComment(ctx context.Context, req dto.CommentInput, postId string) (dto.CommentResponse, error)
+		UpdateComment(ctx context.Context, req dto.CommentInput, commentId string) (dto.CommentResponse, error)
 		GetCommentById(ctx context.Context, commentId string) (entity.Comment, error)
 		GetAllComment(ctx context.Context, postId string) ([]dto.CommentResponse, error)
 		DeleteCommentById(ctx context.Context, userId uint, commentId string) error
@@ -30,7 +30,7 @@ func NewCommentService(commentRepo repository.CommentRepository, postRepo reposi
 	}
 }
 
-func (s *commentService) CreateComment(ctx context.Context, req entity.Comment, postId string) (dto.CommentResponse, error) {
+func (s *commentService) CreateComment(ctx context.Context, req dto.CommentInput, postId string) (dto.CommentResponse, error) {
 
 	existPost, err := s.postRepo.GetPostById(ctx, nil, postId)
 	if err != nil {
@@ -67,7 +67,7 @@ func (s *commentService) CreateComment(ctx context.Context, req entity.Comment, 
 	}, nil
 }
 
-func (s *commentService) UpdateComment(ctx context.Context, req entity.Comment, commentId string) (dto.CommentResponse, error) {
+func (s *commentService) UpdateComment(ctx context.Context, req dto.CommentInput, commentId string) (dto.CommentResponse, error) {
 
 	existComment, err := s.commentRepo.GetCommentById(ctx, nil, commentId)
 	if err != nil {

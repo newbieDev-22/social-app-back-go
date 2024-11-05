@@ -3,7 +3,6 @@ package controller
 import (
 	"net/http"
 	"simple-social-app/dto"
-	"simple-social-app/entity"
 	"simple-social-app/service"
 
 	"github.com/gin-gonic/gin"
@@ -38,7 +37,7 @@ func (c *postController) Create(ctx *gin.Context) {
 		return
 	}
 
-	newPost := entity.Post{
+	newPost := dto.PostInput{
 		UserId:  user.ID,
 		Message: postReq.Message,
 	}
@@ -77,7 +76,7 @@ func (c *postController) Update(ctx *gin.Context) {
 		return
 	}
 
-	updatePost := entity.Post{
+	updatePost := dto.PostInput{
 		UserId:  user.ID,
 		Message: postReq.Message,
 	}

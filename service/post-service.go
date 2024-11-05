@@ -10,8 +10,8 @@ import (
 
 type (
 	PostService interface {
-		CreatePost(ctx context.Context, req entity.Post) (dto.PostResponse, error)
-		UpdatePost(ctx context.Context, req entity.Post, postId string) (dto.PostResponse, error)
+		CreatePost(ctx context.Context, req dto.PostInput) (dto.PostResponse, error)
+		UpdatePost(ctx context.Context, req dto.PostInput, postId string) (dto.PostResponse, error)
 		GetPostAllPost(ctx context.Context) ([]dto.PostResponse, error)
 		GetPostById(ctx context.Context, postId string) (entity.Post, error)
 		DeletePostById(ctx context.Context, userId uint, postId string) error
@@ -28,7 +28,7 @@ func NewPostService(postRepo repository.PostRepository) PostService {
 	}
 }
 
-func (s *postService) CreatePost(ctx context.Context, req entity.Post) (dto.PostResponse, error) {
+func (s *postService) CreatePost(ctx context.Context, req dto.PostInput) (dto.PostResponse, error) {
 
 	post := entity.Post{
 		UserId:  req.UserId,
@@ -67,7 +67,7 @@ func (s *postService) GetPostById(ctx context.Context, postId string) (entity.Po
 
 	return post, nil
 }
-func (s *postService) UpdatePost(ctx context.Context, req entity.Post, postId string) (dto.PostResponse, error) {
+func (s *postService) UpdatePost(ctx context.Context, req dto.PostInput, postId string) (dto.PostResponse, error) {
 
 	existPost, err := s.postRepo.GetPostById(ctx, nil, postId)
 	if err != nil {

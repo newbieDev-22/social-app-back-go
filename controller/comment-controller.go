@@ -3,7 +3,6 @@ package controller
 import (
 	"net/http"
 	"simple-social-app/dto"
-	"simple-social-app/entity"
 	"simple-social-app/service"
 
 	"github.com/gin-gonic/gin"
@@ -39,7 +38,7 @@ func (c *commentController) Create(ctx *gin.Context) {
 		return
 	}
 
-	newComment := entity.Comment{
+	newComment := dto.CommentInput{
 		UserId:  user.ID,
 		Message: commentReq.Message,
 	}
@@ -77,7 +76,7 @@ func (c *commentController) Update(ctx *gin.Context) {
 		return
 	}
 
-	updateComment := entity.Comment{
+	updateComment := dto.CommentInput{
 		UserId:  user.ID,
 		Message: commentReq.Message,
 	}
